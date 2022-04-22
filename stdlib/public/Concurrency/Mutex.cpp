@@ -10,10 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Error.h"
-
-#define SWIFT_FATAL_ERROR swift_Concurrency_fatalError
-
 // Include the runtime's mutex support code.
 // FIXME: figure out some reasonable way to share this stuff
 

@@ -23,12 +23,6 @@
 
 #if defined(_POSIX_THREADS) && !defined(SWIFT_STDLIB_SINGLE_THREADED_RUNTIME)
 
-// Notes: swift::fatalError is not shared between libswiftCore and libswift_Concurrency
-// and libswift_Concurrency uses swift_Concurrency_fatalError instead.
-#ifndef SWIFT_FATAL_ERROR
-#define SWIFT_FATAL_ERROR swift::fatalError
-#endif
-
 #include "swift/Runtime/Mutex.h"
 
 #include "swift/Runtime/Debug.h"
@@ -41,7 +35,7 @@ using namespace swift;
   do {                                                                         \
     int errorcode = PThreadFunction;                                           \
     if (errorcode != 0) {                                                      \
-      SWIFT_FATAL_ERROR(/* flags = */ 0, "'%s' failed with error '%s'(%d)\n",  \
+      swift::fatalError(/* flags = */ 0, "'%s' failed with error '%s'(%d)\n",  \
                         #PThreadFunction, errorName(errorcode), errorcode);    \
     }                                                                          \
   } while (false)
@@ -53,7 +47,7 @@ using namespace swift;
       return true;                                                             \
     if (returnFalseOnEBUSY && errorcode == EBUSY)                              \
       return false;                                                            \
-    SWIFT_FATAL_ERROR(/* flags = */ 0, "'%s' failed with error '%s'(%d)\n",    \
+    swift::fatalError(/* flags = */ 0, "'%s' failed with error '%s'(%d)\n",    \
                       #PThreadFunction, errorName(errorcode), errorcode);      \
   } while (false)
 

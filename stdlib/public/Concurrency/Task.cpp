@@ -20,15 +20,18 @@
 #include "swift/ABI/TaskLocal.h"
 #include "swift/ABI/TaskOptions.h"
 #include "swift/ABI/Metadata.h"
+#include "swift/Basic/Lazy.h"
+#include "swift/Runtime/EnvironmentVariables.h"
+#include "swift/Runtime/Error.h"
 #include "swift/Runtime/Mutex.h"
 #include "swift/Runtime/HeapObject.h"
 #include "TaskGroupPrivate.h"
 #include "TaskPrivate.h"
 #include "Tracing.h"
 #include "Debug.h"
-#include "Error.h"
 #include <atomic>
 #include <new>
+#include <unordered_set>
 
 #if SWIFT_CONCURRENCY_ENABLE_DISPATCH
 #include <dispatch/dispatch.h>
@@ -950,7 +953,7 @@ static void swift_task_future_waitImpl(
   }
 
   case FutureFragment::Status::Error:
-    swift_Concurrency_fatalError(0, "future reported an error, but wait cannot throw");
+    swift::fatalError(0, "future reported an error, but wait cannot throw");
   }
 }
 
@@ -1032,9 +1035,59 @@ swift_task_enqueueTaskOnExecutorImpl(AsyncTask *task, ExecutorRef executor)
   task->flagAsAndEnqueueOnExecutor(executor);
 }
 
+namespace continuationChecking {
+
+enum class State : uint8_t { Uninitialized, On, Off };
+
+static std::atomic<State> CurrentState;
+
+static StaticMutex ActiveContinuationsLock;
+static Lazy<std::unordered_set<ContinuationAsyncContext *>> ActiveContinuations;
+
+static bool isEnabled() {
+  auto state = CurrentState.load(std::memory_order_relaxed);
+  if (state == State::Uninitialized) {
+    bool enabled =
+        runtime::environment::concurrencyValidateUncheckedContinuations();
+    state = enabled ? State::On : State::Off;
+    CurrentState.store(state, std::memory_order_relaxed);
+  }
+  return state == State::On;
+}
+
+static void init(ContinuationAsyncContext *context) {
+  if (!isEnabled())
+    return;
+
+  StaticMutex::ScopedLock guard(ActiveContinuationsLock);
+  auto result = ActiveContinuations.get().insert(context);
+  auto inserted = std::get<1>(result);
+  if (!inserted)
+    swift::fatalError(
+        0,
+        "Initializing continuation context %p that was already initialized.\n",
+        context);
+}
+
+static void willResume(ContinuationAsyncContext *context) {
+  if (!isEnabled())
+    return;
+
+  StaticMutex::ScopedLock guard(ActiveContinuationsLock);
+  auto removed = ActiveContinuations.get().erase(context);
+  if (!removed)
+    swift::fatalError(0,
+                      "Resuming continuation context %p that was not awaited "
+                      "(may have already been resumed).\n",
+                      context);
+}
+
+} // namespace continuationChecking
+
 SWIFT_CC(swift)
 static AsyncTask *swift_continuation_initImpl(ContinuationAsyncContext *context,
                                               AsyncContinuationFlags flags) {
+  continuationChecking::init(context);
   context->Flags = ContinuationAsyncContext::FlagsType();
   if (flags.canThrow()) context->Flags.setCanThrow(true);
   if (flags.isExecutorSwitchForced())
@@ -1135,6 +1188,8 @@ static void swift_continuation_awaitImpl(ContinuationAsyncContext *context) {
 
 static void resumeTaskAfterContinuation(AsyncTask *task,
                                         ContinuationAsyncContext *context) {
+  continuationChecking::willResume(context);
+
   auto &sync = context->AwaitSynchronization;
   auto status = sync.load(std::memory_order_acquire);
   assert(status != ContinuationStatus::Resumed &&
