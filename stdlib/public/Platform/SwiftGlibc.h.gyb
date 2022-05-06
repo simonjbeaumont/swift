@@ -4,6 +4,7 @@ headers = [
   'features.h',
 
   # C standard library
+  'assert.h',
   'complex.h',
   'ctype.h',
   'errno.h',

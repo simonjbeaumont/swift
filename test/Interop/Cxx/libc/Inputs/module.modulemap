@@ -1,0 +1,4 @@
+module UsesLibc {
+  header "uses-libc.h"
+  requires cplusplus
+}
