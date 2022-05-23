@@ -200,12 +200,12 @@ else()
 
   if(${BOOTSTRAPPING_MODE} MATCHES "HOSTTOOLS|CROSSCOMPILE")
 
-    if (NOT SWIFT_EXEC_FOR_SWIFT_MODULES)
+    if (NOT CMAKE_Swift_COMPILER)
       message(FATAL_ERROR "Need a swift toolchain building swift compiler sources")
     endif()
 
     add_swift_compiler_modules_library(swiftCompilerModules
-      SWIFT_EXEC "${SWIFT_EXEC_FOR_SWIFT_MODULES}")
+      SWIFT_EXEC "${CMAKE_Swift_COMPILER}")
 
   elseif(${BOOTSTRAPPING_MODE} MATCHES "BOOTSTRAPPING.*")
 

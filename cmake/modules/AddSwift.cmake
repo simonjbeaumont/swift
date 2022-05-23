@@ -707,7 +707,7 @@ function(add_swift_host_tool executable)
 
       if(BOOTSTRAPPING_MODE STREQUAL "HOSTTOOLS")
         # Add in the toolchain directory so we can grab compatibility libraries
-        get_filename_component(TOOLCHAIN_BIN_DIR ${SWIFT_EXEC_FOR_SWIFT_MODULES} DIRECTORY)
+        get_filename_component(TOOLCHAIN_BIN_DIR ${CMAKE_Swift_COMPILER} DIRECTORY)
         get_filename_component(TOOLCHAIN_LIB_DIR "${TOOLCHAIN_BIN_DIR}/../lib/swift/${SWIFT_SDK_${SWIFT_HOST_VARIANT_SDK}_LIB_SUBDIR}" ABSOLUTE)
         target_link_directories(${executable} PUBLIC ${TOOLCHAIN_LIB_DIR})
 
@@ -788,7 +788,7 @@ function(add_swift_host_tool executable)
     if(${BOOTSTRAPPING_MODE} MATCHES "HOSTTOOLS|CROSSCOMPILE")
       # At build time and run time, link against the swift libraries in the
       # installed host toolchain.
-      get_filename_component(swift_bin_dir ${SWIFT_EXEC_FOR_SWIFT_MODULES} DIRECTORY)
+      get_filename_component(swift_bin_dir ${CMAKE_Swift_COMPILER} DIRECTORY)
       get_filename_component(swift_dir ${swift_bin_dir} DIRECTORY)
       set(host_lib_dir "${swift_dir}/lib/swift/${SWIFT_SDK_${SWIFT_HOST_VARIANT_SDK}_LIB_SUBDIR}")
 
